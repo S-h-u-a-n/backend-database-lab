@@ -151,7 +151,9 @@ func TestCreateCourse(t *testing.T) {
 	if got.Title != "Database Systems" || got.Capacity != 30 {
 		t.Fatalf("CreateCourse returned (%q, %d), want (%q, %d)", got.Title, got.Capacity, "Database Systems", 30)
 	}
-	if got.CreatedAt.Before(before) || got.CreatedAt.After(time.Now().Add(time.Minute)) {
+	if !got.CreatedAt.Valid ||
+		got.CreatedAt.Time.Before(before) ||
+		got.CreatedAt.Time.After(time.Now().Add(time.Minute)) {
 		t.Fatalf("CreateCourse returned unexpected created_at: %v", got.CreatedAt)
 	}
 }
@@ -311,7 +313,7 @@ func TestListCourseRosterFiltersAndSorts(t *testing.T) {
 			got[i].Status != "enrolled" {
 			t.Errorf("ListCourseRoster[%d] = %+v, want id=%s name=Alex email=%s status=enrolled", i, got[i], want.id, want.email)
 		}
-		if got[i].EnrolledAt.IsZero() {
+		if !got[i].EnrolledAt.Valid || got[i].EnrolledAt.Time.IsZero() {
 			t.Errorf("ListCourseRoster[%d] returned zero enrolled_at", i)
 		}
 	}

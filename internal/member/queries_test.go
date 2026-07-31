@@ -152,7 +152,9 @@ func TestCreateMember(t *testing.T) {
 	if got.Name != "Alice" || got.Email != email {
 		t.Fatalf("CreateMember returned (%q, %q), want (%q, %q)", got.Name, got.Email, "Alice", email)
 	}
-	if got.JoinedAt.Before(before) || got.JoinedAt.After(time.Now().Add(time.Minute)) {
+	if !got.JoinedAt.Valid ||
+		got.JoinedAt.Time.Before(before) ||
+		got.JoinedAt.Time.After(time.Now().Add(time.Minute)) {
 		t.Fatalf("CreateMember returned unexpected joined_at: %v", got.JoinedAt)
 	}
 }
@@ -307,7 +309,7 @@ func TestListMemberCoursesIncludesHistoryAndSorts(t *testing.T) {
 		if got[i].CourseID != want.id || got[i].CourseTitle != want.title || got[i].Status != want.status {
 			t.Errorf("ListMemberCourses[%d] = %+v, want id=%s title=%q status=%q", i, got[i], want.id, want.title, want.status)
 		}
-		if got[i].EnrolledAt.IsZero() {
+		if !got[i].EnrolledAt.Valid || got[i].EnrolledAt.Time.IsZero() {
 			t.Errorf("ListMemberCourses[%d] returned zero enrolled_at", i)
 		}
 	}

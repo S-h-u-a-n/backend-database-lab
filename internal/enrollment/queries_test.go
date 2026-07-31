@@ -151,7 +151,9 @@ func TestCreateEnrollment(t *testing.T) {
 	if got.Status != "enrolled" {
 		t.Fatalf("CreateEnrollment status = %q, want enrolled", got.Status)
 	}
-	if got.EnrolledAt.Before(before) || got.EnrolledAt.After(time.Now().Add(time.Minute)) {
+	if !got.EnrolledAt.Valid ||
+		got.EnrolledAt.Time.Before(before) ||
+		got.EnrolledAt.Time.After(time.Now().Add(time.Minute)) {
 		t.Fatalf("CreateEnrollment returned unexpected enrolled_at: %v", got.EnrolledAt)
 	}
 }
@@ -340,7 +342,7 @@ func TestGetEnrollmentDetail(t *testing.T) {
 		got.Status != "enrolled" {
 		t.Fatalf("GetEnrollmentDetail returned %+v", got)
 	}
-	if got.EnrolledAt.IsZero() {
+	if !got.EnrolledAt.Valid || got.EnrolledAt.Time.IsZero() {
 		t.Fatal("GetEnrollmentDetail returned zero enrolled_at")
 	}
 }
