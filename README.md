@@ -6,6 +6,10 @@ By completing it, you will learn to design a normalized relational schema and de
 
 You will also use sqlc to implement type-safe CRUD and JOIN queries, then verify query results and database constraints with PostgreSQL integration tests.
 
+> **Lecture note:** Read [DB CRUD](https://app.notion.com/p/sdc-nycu/DB-CRUD-3a97dadd804080aebf25cf742474470c?source=copy_link) before starting the lab.
+
+> **Need help?** Try the exercises yourself first. If you get stuck, use the [`reference-answer` branch](https://github.com/ilsao/backend-database-lab/tree/reference-answer) to compare your approach with a working implementation. Continue your own work on your fork's branch rather than submitting the reference branch.
+
 ## How to Start
 
 ### Fork and Clone the Repository
@@ -137,7 +141,20 @@ go get github.com/golang-migrate/migrate/v4@v4.19.0
 000002_create_courses.down.sql
 ```
 
-The migration library does not run automatically. The backend must explicitly call a migration function, such as the helper in `databaseutil/migration.go`, during startup. The helper then checks the current schema version and applies pending migrations.
+Migration filenames follow the pattern `<version>_<description>.up.sql` and `<version>_<description>.down.sql`. Both files in a pair use the same version and description:
+
+- The `.up.sql` file applies the change, such as creating or altering a table.
+- The matching `.down.sql` file reverses that change, such as dropping the table or restoring its previous shape.
+- Rollbacks run in reverse version order. Objects with dependencies must therefore be removed before the objects they reference; for this lab, drop `enrollments` before `members` or `courses`.
+
+For example, this down migration reverses the matching up migration that created the `members` table:
+
+```sql
+-- 000001_create_members.down.sql
+DROP TABLE IF EXISTS members;
+```
+
+The migration library does not run automatically. A migration runner must explicitly call a function such as the helper in `databaseutil/migration.go`, which checks the current schema version and applies pending migrations.
 
 #### Go Packages
 
@@ -161,8 +178,6 @@ The following tree shows the files that are important for this lab:
 
 ```text
 backend-database-lab/
-|-- cmd/
-|   `-- main.go                         # Starts the application and runs migrations
 |-- databaseutil/
 |   `-- migration.go                    # Helper for applying pending migrations
 |-- internal/
@@ -321,17 +336,31 @@ sqlc generate
 
 Write all annotated queries in each domain's `queries.sql`. The query names, parameters, and generated return types below are fixed contracts for the provided services and handlers.
 
+For every query with more than one parameter, use [`sqlc.arg(...)`](https://docs.sqlc.dev/en/latest/howto/named_parameters.html) instead of positional parameters such as `$1`, `$2`, and `$3`. Named parameters control the field names in sqlc-generated Go parameter structs. For example, `sqlc.arg(member_id)` generates a `MemberID` field instead of an inferred or positional name.
+
+The generated parameter types shown below document the required output from sqlc; do not copy them into a Go file.
+
+All domains follow these CRUD rules:
+
+- Query annotations, names, and cardinalities must match the contracts below.
+- Create, update, and delete queries must use `:one` and `RETURNING` to return the affected row.
+- Every `SELECT` and `RETURNING` clause must list its columns explicitly. Do not use `*`.
+- Every update and delete must contain a complete `WHERE` clause that identifies exactly one resource.
+- List queries do not use pagination and must include the deterministic `ORDER BY` specified below.
+
 ### Member Queries Contract
 
-Implement these annotated queries in `member/queries.sql`:
+Implement these annotated queries in `internal/member/queries.sql`:
 
-- `CreateMember :one`
-- `GetMember :one`
-- `ListMembers :many`
-- `UpdateMember :one`
-- `DeleteMember :one`
-- `ListMemberCourses :many`
-- `ListClassmates :many`
+| Query | Inputs | Required behavior |
+| --- | --- | --- |
+| `CreateMember :one` | `name`, `email` | Insert a member and return `id`, `name`, `email`, and `joined_at`. |
+| `GetMember :one` | `id` | Return the member identified by `id`; a missing member returns `pgx.ErrNoRows`. |
+| `ListMembers :many` | None | Return every member ordered by `joined_at ASC, id ASC`. |
+| `UpdateMember :one` | `name`, `email`, `id` | Fully replace `name` and `email` for the member identified by `id`, then return that row. |
+| `DeleteMember :one` | `id` | Delete only the member identified by `id` and return the deleted row. |
+| `ListMemberCourses :many` | `member_id` | Return the member's complete enrollment history as described immediately below. |
+| `ListClassmates :many` | `member_id` | Return unique active classmates as described immediately below. |
 
 Running `sqlc generate` must produce parameter types with these fields:
 
@@ -348,94 +377,7 @@ type UpdateMemberParams struct {
 }
 ```
 
-### Course Queries Contract
-
-Implement these annotated queries in `course/queries.sql`:
-
-- `CreateCourse :one`
-- `GetCourse :one`
-- `ListCourses :many`
-- `UpdateCourse :one`
-- `DeleteCourse :one`
-- `ListCourseRoster :many`
-
-Running `sqlc generate` must produce parameter types with these fields:
-
-```go
-type CreateCourseParams struct {
-    Title    string
-    Capacity int32
-}
-
-type UpdateCourseParams struct {
-    Title    string
-    Capacity int32
-    ID       uuid.UUID
-}
-```
-
-### Enrollment Queries Contract
-
-Implement these annotated queries in `enrollment/queries.sql`:
-
-- `CreateEnrollment :one`
-- `GetEnrollment :one`
-- `ListEnrollments :many`
-- `UpdateEnrollmentStatus :one`
-- `DeleteEnrollment :one`
-- `GetEnrollmentDetail :one`
-
-Running `sqlc generate` must produce parameter types with these fields:
-
-```go
-type CreateEnrollmentParams struct {
-    MemberID uuid.UUID
-    CourseID uuid.UUID
-}
-
-type GetEnrollmentParams struct {
-    MemberID uuid.UUID
-    CourseID uuid.UUID
-}
-
-type UpdateEnrollmentStatusParams struct {
-    Status   string
-    MemberID uuid.UUID
-    CourseID uuid.UUID
-}
-
-type DeleteEnrollmentParams struct {
-    MemberID uuid.UUID
-    CourseID uuid.UUID
-}
-
-type GetEnrollmentDetailParams struct {
-    MemberID uuid.UUID
-    CourseID uuid.UUID
-}
-```
-
-The code above documents generated types and must not be copied into a Go file. Use [`sqlc.arg(...)`](https://docs.sqlc.dev/en/latest/howto/named_parameters.html) for every parameter in a multi-parameter query so sqlc generates the exact field names shown above.
-
-### CRUD Requirements
-
-Implement the following CRUD behavior:
-
-- Create, retrieve, list, fully update, and delete members.
-- Create, retrieve, list, fully update, and delete courses.
-- Create, retrieve, and list enrollments.
-- Update an enrollment's status.
-- Delete an enrollment.
-
-Use these rules:
-
-- Query annotations and names must match the contracts listed above.
-- Create, update, and delete queries must use `:one` and `RETURNING` to return the affected row.
-- Every `SELECT` and `RETURNING` clause must list its columns explicitly. Do not use `*`.
-- Every update and delete must contain a complete `WHERE` clause that identifies one resource.
-- List queries do not use pagination and must include a deterministic `ORDER BY`.
-
-### JOIN Exercise 1: List a Member's Courses
+#### JOIN: List a Member's Courses
 
 Implement `ListMemberCourses` using `members`, `enrollments`, and `courses`.
 
@@ -465,7 +407,66 @@ type ListMemberCoursesRow struct {
 }
 ```
 
-### JOIN Exercise 2: List a Course Roster
+#### JOIN: List Classmates
+
+Implement `ListClassmates` with a self-join on `enrollments` and a join to `members`.
+
+The query must:
+
+- Accept one member ID.
+- Find other members who share at least one course with the requested member.
+- Require both the requested member's enrollment and the classmate's enrollment to have the status `enrolled`.
+- Exclude the requested member from the result.
+- Use `DISTINCT` so a classmate who shares multiple courses appears only once.
+- Return exactly these columns and aliases:
+
+| Alias | PostgreSQL Type |
+| --- | --- |
+| `member_id` | `UUID` |
+| `member_name` | `TEXT` |
+| `member_email` | `TEXT` |
+
+- Sort by `member_name ASC, member_id ASC`.
+
+The generated result type must be:
+
+```go
+type ListClassmatesRow struct {
+    MemberID    uuid.UUID
+    MemberName  string
+    MemberEmail string
+}
+```
+
+### Course Queries Contract
+
+Implement these annotated queries in `internal/course/queries.sql`:
+
+| Query | Inputs | Required behavior |
+| --- | --- | --- |
+| `CreateCourse :one` | `title`, `capacity` | Insert a course and return `id`, `title`, `capacity`, and `created_at`. |
+| `GetCourse :one` | `id` | Return the course identified by `id`; a missing course returns `pgx.ErrNoRows`. |
+| `ListCourses :many` | None | Return every course ordered by `created_at ASC, id ASC`. |
+| `UpdateCourse :one` | `title`, `capacity`, `id` | Fully replace `title` and `capacity` for the course identified by `id`, then return that row. |
+| `DeleteCourse :one` | `id` | Delete only the course identified by `id` and return the deleted row. |
+| `ListCourseRoster :many` | `course_id` | Return active enrollments for the course as described immediately below. |
+
+Running `sqlc generate` must produce parameter types with these fields:
+
+```go
+type CreateCourseParams struct {
+    Title    string
+    Capacity int32
+}
+
+type UpdateCourseParams struct {
+    Title    string
+    Capacity int32
+    ID       uuid.UUID
+}
+```
+
+#### JOIN: List a Course Roster
 
 Implement `ListCourseRoster` using `courses`, `enrollments`, and `members`.
 
@@ -498,7 +499,50 @@ type ListCourseRosterRow struct {
 }
 ```
 
-### JOIN Exercise 3: Get Enrollment Details
+### Enrollment Queries Contract
+
+Implement these annotated queries in `internal/enrollment/queries.sql`:
+
+| Query | Inputs | Required behavior |
+| --- | --- | --- |
+| `CreateEnrollment :one` | `member_id`, `course_id` | Insert an enrollment using the default `enrolled` status and return the created row. |
+| `GetEnrollment :one` | `member_id`, `course_id` | Return the enrollment identified by the composite member/course key; a missing enrollment returns `pgx.ErrNoRows`. |
+| `ListEnrollments :many` | None | Return every enrollment ordered by `enrolled_at ASC, member_id ASC, course_id ASC`. |
+| `UpdateEnrollmentStatus :one` | `status`, `member_id`, `course_id` | Update only `status` for the enrollment identified by the composite key, then return that row. |
+| `DeleteEnrollment :one` | `member_id`, `course_id` | Delete only the enrollment identified by the composite key and return the deleted row. |
+| `GetEnrollmentDetail :one` | `member_id`, `course_id` | Return the joined enrollment detail described immediately below. |
+
+Running `sqlc generate` must produce parameter types with these fields:
+
+```go
+type CreateEnrollmentParams struct {
+    MemberID uuid.UUID
+    CourseID uuid.UUID
+}
+
+type GetEnrollmentParams struct {
+    MemberID uuid.UUID
+    CourseID uuid.UUID
+}
+
+type UpdateEnrollmentStatusParams struct {
+    Status   string
+    MemberID uuid.UUID
+    CourseID uuid.UUID
+}
+
+type DeleteEnrollmentParams struct {
+    MemberID uuid.UUID
+    CourseID uuid.UUID
+}
+
+type GetEnrollmentDetailParams struct {
+    MemberID uuid.UUID
+    CourseID uuid.UUID
+}
+```
+
+#### JOIN: Get Enrollment Details
 
 Implement `GetEnrollmentDetail` using all three tables.
 
@@ -532,37 +576,6 @@ type GetEnrollmentDetailRow struct {
     CourseCapacity int32
     Status         string
     EnrolledAt     time.Time
-}
-```
-
-### JOIN Exercise 4: List Classmates
-
-Implement `ListClassmates` with a self-join on `enrollments` and a join to `members`.
-
-The query must:
-
-- Accept one member ID.
-- Find other members who share at least one course with the requested member.
-- Require both the requested member's enrollment and the classmate's enrollment to have the status `enrolled`.
-- Exclude the requested member from the result.
-- Use `DISTINCT` so a classmate who shares multiple courses appears only once.
-- Return exactly these columns and aliases:
-
-| Alias | PostgreSQL Type |
-| --- | --- |
-| `member_id` | `UUID` |
-| `member_name` | `TEXT` |
-| `member_email` | `TEXT` |
-
-- Sort by `member_name ASC, member_id ASC`.
-
-The generated result type must be:
-
-```go
-type ListClassmatesRow struct {
-    MemberID    uuid.UUID
-    MemberName  string
-    MemberEmail string
 }
 ```
 
