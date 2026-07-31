@@ -1,0 +1,45 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Setting file
+.env
+config.yaml
+client_secret_*.json
+client_secret*.json
+*-credentials.json
+
+# Generate file
+sqlc.yaml
+full_schema.sql
+queries.sql.go
+mocks/
+
+# Editor/IDE
+.idea/
+.vscode/
+
+.DS_Store
+
+bin
+
+# Local temp artifacts from media tests
+internal/content/var/
