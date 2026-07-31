@@ -8,10 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"database-training/databaseutil"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 const testDatabaseURL = "postgresql://postgres:password@localhost:5432/postgres?sslmode=disable"
@@ -32,6 +35,11 @@ func TestMain(m *testing.M) {
 		fmt.Fprintf(os.Stderr, "enrollment tests: PostgreSQL is not ready at %s: %v\n", testDatabaseURL, err)
 		os.Exit(1)
 	}
+	if err := databaseutil.MigrationUp("file://../database/migrations", testDatabaseURL, zap.NewNop()); err != nil {
+		pool.Close()
+		fmt.Fprintf(os.Stderr, "enrollment tests: apply migrations: %v\n", err)
+		os.Exit(1)
+	}
 
 	var schemaReady bool
 	err = pool.QueryRow(ctx, `
@@ -41,7 +49,7 @@ func TestMain(m *testing.M) {
 	`).Scan(&schemaReady)
 	if err != nil || !schemaReady {
 		pool.Close()
-		fmt.Fprintln(os.Stderr, "enrollment tests: expected members, courses, and enrollments tables; apply all migrations first")
+		fmt.Fprintln(os.Stderr, "enrollment tests: migrations did not create the members, courses, and enrollments tables")
 		os.Exit(1)
 	}
 
