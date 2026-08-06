@@ -1,35 +1,35 @@
-# Backend Database Lab
+# 後端資料庫實作練習
 
-This lab is part of the NYCU Software Development Club (SDC) backend training program and focuses on the database layer of a course enrollment system.
+本實作練習是陽明交通大學軟體開發社（NYCU Software Development Club，SDC）後端培訓課程的一部分，著重於選課系統的資料庫層。
 
-By completing it, you will learn to design a normalized relational schema and describe its current structure with `schema.sql` while evolving it through versioned migrations.
+完成本實作後，你將學會設計正規化的關聯式資料庫綱要（schema），使用 `schema.sql` 描述其目前結構，並透過有版本編號的 migration 逐步演進資料庫。
 
-You will also use sqlc to implement type-safe CRUD and JOIN queries, then verify query results and database constraints with PostgreSQL integration tests.
+你也會使用 sqlc 實作型別安全的 CRUD 與 JOIN 查詢，接著透過 PostgreSQL 整合測試驗證查詢結果及資料庫約束。
 
-> **Lecture note:** Read [DB CRUD](https://app.notion.com/p/sdc-nycu/DB-CRUD-3a97dadd804080aebf25cf742474470c?source=copy_link) before starting the lab.
+> **課程講義：** 開始本實作前，請先閱讀 [DB CRUD](https://app.notion.com/p/sdc-nycu/DB-CRUD-3a97dadd804080aebf25cf742474470c?source=copy_link)。
 
-> **Need help?** Try the exercises yourself first. If you get stuck, use the [`reference-answer` branch](https://github.com/ilsao/backend-database-lab/tree/reference-answer) to compare your approach with a working implementation. Continue your own work on your fork's branch rather than submitting the reference branch.
+> **需要協助嗎？** 請先自行嘗試完成練習。若遇到困難，可參考 [`reference-answer` 分支](https://github.com/ilsao/backend-database-lab/tree/reference-answer)，比較你的做法與可正常運作的實作。請繼續在你自己 fork 的分支上完成作業，不要提交參考答案分支。
 
-## How to Start
+## 如何開始
 
-### Fork and Clone the Repository
+### Fork 並 Clone Repository
 
-1. Open the [original repository](https://github.com/ilsao/backend-database-lab).
-2. Click `Fork` in the upper-right corner, then click `Create fork` to copy the repository to your GitHub account.
-3. Clone your fork and enter the project directory. Replace `<your-github-username>` with your GitHub username:
+1. 開啟[原始 repository](https://github.com/ilsao/backend-database-lab)。
+2. 點選右上角的 `Fork`，再點選 `Create fork`，將 repository 複製到你的 GitHub 帳號。
+3. Clone 你的 fork 並進入專案目錄。請將 `<your-github-username>` 替換成你的 GitHub 使用者名稱：
 
    ```bash
    git clone https://github.com/<your-github-username>/backend-database-lab.git
    cd backend-database-lab
    ```
 
-Make sure you clone your own fork rather than the original repository. This allows you to push your work to your own GitHub repository.
+請確認你 clone 的是自己的 fork，而非原始 repository。如此才能將成果 push 到你自己的 GitHub repository。
 
-If you enjoy this lab, you can also return to the [original repository](https://github.com/ilsao/backend-database-lab) and click `Star`.
+如果你喜歡這份實作練習，也可以回到[原始 repository](https://github.com/ilsao/backend-database-lab) 並點選 `Star`。
 
-### Set Up Docker
+### 設定 Docker
 
-If you use Linux or WSL, run the following commands to install Docker:
+若你使用 Linux 或 WSL，請執行下列指令安裝 Docker：
 
 ```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -37,81 +37,81 @@ sudo sh get-docker.sh
 sudo usermod -aG docker $USER
 ```
 
-If you use macOS, install [OrbStack](https://orbstack.dev/) with Homebrew:
+若你使用 macOS，請透過 Homebrew 安裝 [OrbStack](https://orbstack.dev/)：
 
 ```bash
 brew install orbstack
 ```
 
-Start PostgreSQL with a minimal configuration:
+以最精簡的設定啟動 PostgreSQL：
 
 ```bash
 docker run --name db -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres
 ```
 
-- `docker run` creates and starts a new container.
-- `--name db` names the container `db`, making it easier to reference later with commands such as `docker stop db` and `docker logs db`.
-- `-e POSTGRES_PASSWORD=password` sets the password for PostgreSQL's default administrator account, `postgres`.
-- `-p 5432:5432` maps port `5432` on the host to port `5432` in the container.
-- `-d` runs the container in the background.
-- `postgres` specifies the Docker image.
+- `docker run` 會建立並啟動新的 container。
+- `--name db` 將 container 命名為 `db`，之後便能透過 `docker stop db`、`docker logs db` 等指令輕鬆引用它。
+- `-e POSTGRES_PASSWORD=password` 將 PostgreSQL 預設管理員帳號 `postgres` 的密碼設為 `password`。
+- `-p 5432:5432` 將 host 的 `5432` port 對應至 container 的 `5432` port。
+- `-d` 讓 container 在背景執行。
+- `postgres` 指定要使用的 Docker image。
 
-If Docker is running inside a Linux virtual machine, replace `localhost` in the connection settings with the virtual machine's IP address.
+若 Docker 在 Linux 虛擬機器內執行，請將連線設定中的 `localhost` 替換成該虛擬機器的 IP 位址。
 
-Check whether PostgreSQL started successfully:
+確認 PostgreSQL 是否成功啟動：
 
 ```bash
 docker logs db
 ```
 
-You can later start or stop the container with:
+之後可透過下列指令啟動或停止 container：
 
 ```bash
 docker start db
 docker stop db
 ```
 
-### Connect to PostgreSQL with GoLand
+### 使用 GoLand 連線至 PostgreSQL
 
-1. Open the Database tool window.
+1. 開啟 Database 工具視窗。
 
    ![](./pic/1.png)
 
-2. Click `+`, select `Data Source`, and then select `PostgreSQL`.
+2. 點選 `+`，選擇 `Data Source`，再選擇 `PostgreSQL`。
 
    ![](./pic/2.png)
 
-3. Configure the connection:
+3. 設定連線：
 
-   - **Host:** Use `localhost` on macOS or when Docker runs directly on Linux. When Docker runs in a virtual machine, use the virtual machine's IP address.
-   - **User:** Use PostgreSQL's default user, `postgres`.
-   - **Password:** Use the value specified by `POSTGRES_PASSWORD`, which is `password` in this setup.
+   - **Host：** 在 macOS 或 Docker 直接執行於 Linux 時使用 `localhost`。若 Docker 在虛擬機器中執行，請使用該虛擬機器的 IP 位址。
+   - **User：** 使用 PostgreSQL 的預設使用者 `postgres`。
+   - **Password：** 使用 `POSTGRES_PASSWORD` 指定的值；本設定中為 `password`。
 
    ![](./pic/3.png)
 
-4. Click `Test Connection`. The first connection attempt may prompt you to download the PostgreSQL driver. Install it and test the connection again.
+4. 點選 `Test Connection`。第一次嘗試連線時，系統可能會提示你下載 PostgreSQL driver。請安裝 driver 後再次測試連線。
 
-   A successful connection displays the following message:
+   連線成功時會顯示下列訊息：
 
    ![](./pic/4.png)
 
-5. Click `OK` to save the configuration.
+5. 點選 `OK` 儲存設定。
 
-    The connection appears in the Database tool window, where you can browse and manage the databases hosted by the PostgreSQL server. Each database is isolated while sharing the same PostgreSQL instance.
+   連線會出現在 Database 工具視窗中，你可以在此瀏覽及管理 PostgreSQL server 上的資料庫。每個資料庫彼此隔離，但共用同一個 PostgreSQL instance。
 
-    ![](./pic/5.png)
+   ![](./pic/5.png)
 
-### Install the Required Tools
+### 安裝必要工具
 
 #### sqlc
 
-Install the sqlc command-line tool:
+安裝 sqlc 命令列工具：
 
 ```bash
 go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 ```
 
-[sqlc](https://sqlc.dev/) generates type-safe Go code from SQL queries and annotations. For example:
+[sqlc](https://sqlc.dev/) 會根據 SQL 查詢與 annotation 產生型別安全的 Go 程式碼。例如：
 
 ```sql
 -- name: GetMemberByID :one
@@ -120,19 +120,19 @@ FROM members
 WHERE id = $1;
 ```
 
-From an annotated query, sqlc generates parameter types, result types, and a query method. This reduces repetitive database access code and prevents common mistakes such as scanning columns into incompatible Go values.
+sqlc 會根據含有 annotation 的查詢產生參數型別、結果型別及查詢方法。這可減少重複的資料庫存取程式碼，並避免將欄位掃描至不相容 Go 值等常見錯誤。
 
-After installation, refer to the official [sqlc guide](https://docs.sqlc.dev/en/latest/tutorials/getting-started-postgresql.html#schema-and-queries) for further imformation.
+安裝完成後，請參閱官方 [sqlc 指南](https://docs.sqlc.dev/en/latest/tutorials/getting-started-postgresql.html#schema-and-queries)以了解更多資訊。
 
 #### golang-migrate
 
-Add golang-migrate to the project:
+將 golang-migrate 加入專案：
 
 ```bash
 go get github.com/golang-migrate/migrate/v4@v4.19.0
 ```
 
-[golang-migrate](https://github.com/golang-migrate/migrate) manages database schema changes as ordered, versioned migrations. Each change has an `up` migration that applies it and a `down` migration that reverses it:
+[golang-migrate](https://github.com/golang-migrate/migrate) 透過依序排列且具有版本編號的 migration 管理資料庫綱要變更。每項變更都有一個套用變更的 `up` migration，以及一個還原變更的 `down` migration：
 
 ```text
 000001_create_members.up.sql
@@ -141,24 +141,24 @@ go get github.com/golang-migrate/migrate/v4@v4.19.0
 000002_create_courses.down.sql
 ```
 
-Migration filenames follow the pattern `<version>_<description>.up.sql` and `<version>_<description>.down.sql`. Both files in a pair use the same version and description:
+Migration 檔名遵循 `<version>_<description>.up.sql` 與 `<version>_<description>.down.sql` 格式。同一組的兩個檔案使用相同的版本與描述：
 
-- The `.up.sql` file applies the change, such as creating or altering a table.
-- The matching `.down.sql` file reverses that change, such as dropping the table or restoring its previous shape.
-- Rollbacks run in reverse version order. Objects with dependencies must therefore be removed before the objects they reference; for this lab, drop `enrollments` before `members` or `courses`.
+- `.up.sql` 檔會套用變更，例如建立或修改資料表。
+- 對應的 `.down.sql` 檔會還原該變更，例如刪除資料表或恢復原本的結構。
+- Rollback 會按照版本的反向順序執行。因此，有相依關係的物件必須先於其引用的物件移除；在本實作中，應先刪除 `enrollments`，再刪除 `members` 或 `courses`。
 
-For example, this down migration reverses the matching up migration that created the `members` table:
+例如，下列 down migration 會還原建立 `members` 資料表的對應 up migration：
 
 ```sql
 -- 000001_create_members.down.sql
 DROP TABLE IF EXISTS members;
 ```
 
-The migration library does not run by itself. The provided integration tests call the helper in `databaseutil/migration.go` before running assertions, so `go test ./internal/...` automatically checks the current schema version and applies pending up migrations. It does not run down migrations or delete existing data.
+Migration library 不會自行執行。提供的整合測試會先呼叫 `databaseutil/migration.go` 中的 helper，再執行 assertion，因此 `go test ./internal/...` 會自動檢查目前的綱要版本並套用尚未執行的 up migration。它不會執行 down migration，也不會刪除現有資料。
 
-#### Go Packages
+#### Go 套件
 
-Install the packages used for logging, UUIDs, and PostgreSQL access:
+安裝用於 logging、UUID 及 PostgreSQL 存取的套件：
 
 ```bash
 go get go.uber.org/zap
@@ -167,73 +167,73 @@ go get github.com/jackc/pgx/v5
 go get github.com/jackc/pgx/v5/pgxpool
 ```
 
-## Architecture
+## 專案架構
 
-The following tree shows the files that are important for this lab:
+以下目錄樹列出本實作練習的重要檔案：
 
-- `[TODO]`: Create or edit this file as part of the assignment.
-- `[TEST]`: Provided evaluation code; do not edit it.
-- `[GENERATED]`: Created by a script or sqlc; do not edit it manually.
-- Files without a label are provided project support files.
+- `[TODO]`：作業中需要建立或編輯的檔案。
+- `[TEST]`：提供的評測程式碼，請勿編輯。
+- `[GENERATED]`：由 script 或 sqlc 產生，請勿手動編輯。
+- 沒有標籤的檔案是專案提供的支援檔案。
 
 ```text
 backend-database-lab/
 |-- databaseutil/
-|   `-- migration.go                    # Applies pending migrations for the tests
+|   `-- migration.go                    # 為測試套用尚未執行的 migration
 |-- internal/
 |   |-- database/
-|   |   |-- migrations/                 # [TODO] Add numbered up/down migration pairs here
+|   |   |-- migrations/                 # [TODO] 在此新增有編號的 up/down migration 組合
 |   |   |   |-- 000001_example.up.sql
 |   |   |   `-- 000001_example.down.sql
-|   |   `-- full_schema.sql             # [GENERATED] Combined domain schemas
+|   |   `-- full_schema.sql             # [GENERATED] 合併各 domain 的 schema
 |   |-- member/
-|   |   |-- schema.sql                  # [TODO] Define the members table
-|   |   |-- queries.sql                 # [TODO] Implement member queries
-|   |   |-- queries_test.go             # [TEST] Migrates DB and evaluates members
-|   |   |-- db.go                       # [GENERATED] sqlc database interface
-|   |   |-- models.go                   # [GENERATED] sqlc database models
-|   |   `-- queries.sql.go              # [GENERATED] Member query methods
+|   |   |-- schema.sql                  # [TODO] 定義 members 資料表
+|   |   |-- queries.sql                 # [TODO] 實作 member 查詢
+|   |   |-- queries_test.go             # [TEST] 執行 DB migration 並評測 members
+|   |   |-- db.go                       # [GENERATED] sqlc 資料庫介面
+|   |   |-- models.go                   # [GENERATED] sqlc 資料庫 model
+|   |   `-- queries.sql.go              # [GENERATED] Member 查詢方法
 |   |-- course/
-|   |   |-- schema.sql                  # [TODO] Define the courses table
-|   |   |-- queries.sql                 # [TODO] Implement course queries
-|   |   |-- queries_test.go             # [TEST] Migrates DB and evaluates courses
-|   |   |-- db.go                       # [GENERATED] sqlc database interface
-|   |   |-- models.go                   # [GENERATED] sqlc database models
-|   |   `-- queries.sql.go              # [GENERATED] Course query methods
+|   |   |-- schema.sql                  # [TODO] 定義 courses 資料表
+|   |   |-- queries.sql                 # [TODO] 實作 course 查詢
+|   |   |-- queries_test.go             # [TEST] 執行 DB migration 並評測 courses
+|   |   |-- db.go                       # [GENERATED] sqlc 資料庫介面
+|   |   |-- models.go                   # [GENERATED] sqlc 資料庫 model
+|   |   `-- queries.sql.go              # [GENERATED] Course 查詢方法
 |   `-- enrollment/
-|       |-- schema.sql                  # [TODO] Define the enrollments table
-|       |-- queries.sql                 # [TODO] Implement enrollment queries
-|       |-- queries_test.go             # [TEST] Migrates DB and evaluates enrollments
-|       |-- db.go                       # [GENERATED] sqlc database interface
-|       |-- models.go                   # [GENERATED] sqlc database models
-|       `-- queries.sql.go              # [GENERATED] Enrollment query methods
+|       |-- schema.sql                  # [TODO] 定義 enrollments 資料表
+|       |-- queries.sql                 # [TODO] 實作 enrollment 查詢
+|       |-- queries_test.go             # [TEST] 執行 DB migration 並評測 enrollments
+|       |-- db.go                       # [GENERATED] sqlc 資料庫介面
+|       |-- models.go                   # [GENERATED] sqlc 資料庫 model
+|       `-- queries.sql.go              # [GENERATED] Enrollment 查詢方法
 |-- scripts/
-|   `-- create_sqlc_full_schema.sh      # Generates full_schema.sql and sqlc.yaml
-|-- sqlc.yaml                           # [GENERATED] sqlc configuration
-|-- go.mod                              # Go module and dependency declarations
-|-- go.sum                              # Dependency checksums
-`-- README.md                           # Lab instructions and contracts
+|   `-- create_sqlc_full_schema.sh      # 產生 full_schema.sql 與 sqlc.yaml
+|-- sqlc.yaml                           # [GENERATED] sqlc 設定檔
+|-- go.mod                              # Go module 與 dependency 宣告
+|-- go.sum                              # Dependency checksum
+`-- README.md                           # 實作說明與規格契約
 ```
 
-Complete the assignment in this order:
+請依照下列順序完成作業：
 
-1. Define each domain's table in its `schema.sql` and add matching migration pairs under `internal/database/migrations/`.
-2. Implement the annotated SQL queries in each domain's `queries.sql`.
-3. Run `./scripts/create_sqlc_full_schema.sh` to generate `internal/database/full_schema.sql` and `sqlc.yaml`.
-4. Run `sqlc generate` to generate the Go query layer inside each domain.
-5. Run `go test ./internal/...` to apply pending migrations automatically and evaluate the generated query methods and database constraints.
+1. 在各 domain 的 `schema.sql` 中定義資料表，並在 `internal/database/migrations/` 下新增對應的 migration 組合。
+2. 在各 domain 的 `queries.sql` 中實作含有 annotation 的 SQL 查詢。
+3. 執行 `./scripts/create_sqlc_full_schema.sh`，產生 `internal/database/full_schema.sql` 與 `sqlc.yaml`。
+4. 執行 `sqlc generate`，在各 domain 中產生 Go 查詢層。
+5. 執行 `go test ./internal/...`，自動套用尚未執行的 migration，並評測產生的查詢方法與資料庫約束。
 
-Only edit files marked `[TODO]`. Do not modify the provided `queries_test.go` files or manually edit `full_schema.sql`, `sqlc.yaml`, or any Go files generated by sqlc.
+只能編輯標有 `[TODO]` 的檔案。請勿修改提供的 `queries_test.go`，也不要手動編輯 `full_schema.sql`、`sqlc.yaml` 或任何由 sqlc 產生的 Go 檔案。
 
-## Part I: Design Tables
+## 第一部分：設計資料表
 
-Design and implement the relational schema for a course enrollment system. The schema must be normalized to at least Third Normal Form (3NF) and must contain the following tables.
+為選課系統設計並實作關聯式資料庫綱要。綱要至少必須符合第三正規化（3NF），並包含以下資料表。
 
-### What Goes in `schema.sql`?
+### `schema.sql` 應包含哪些內容？
 
-A database schema is the blueprint of the database. It describes tables, columns, PostgreSQL data types, and constraints such as `PRIMARY KEY`, `FOREIGN KEY`, `NOT NULL`, `UNIQUE`, `CHECK`, and `DEFAULT`. A `schema.sql` file contains these structure definitions. It does not contain application queries such as `SELECT`, `INSERT`, `UPDATE`, or `DELETE`, and it should not contain sample data.
+資料庫綱要是資料庫的藍圖，描述資料表、欄位、PostgreSQL 資料型別，以及 `PRIMARY KEY`、`FOREIGN KEY`、`NOT NULL`、`UNIQUE`、`CHECK` 和 `DEFAULT` 等約束。`schema.sql` 檔案包含這些結構定義，不應包含 `SELECT`、`INSERT`、`UPDATE` 或 `DELETE` 等應用程式查詢，也不應包含範例資料。
 
-Use the following shape as a guide and replace the placeholders with the requirements in the Schema Contract below:
+請以下列形式為參考，並依據下方的「綱要規格契約」替換預留內容：
 
 ```sql
 CREATE TABLE table_name (
@@ -242,127 +242,117 @@ CREATE TABLE table_name (
 );
 ```
 
-Keep each domain's table definition in its own file:
+請將每個 domain 的資料表定義分別放在各自的檔案中：
 
-- `internal/member/schema.sql` defines the `members` table.
-- `internal/course/schema.sql` defines the `courses` table.
-- `internal/enrollment/schema.sql` defines the `enrollments` table.
+- `internal/member/schema.sql` 定義 `members` 資料表。
+- `internal/course/schema.sql` 定義 `courses` 資料表。
+- `internal/enrollment/schema.sql` 定義 `enrollments` 資料表。
 
-The `scripts/create_sqlc_full_schema.sh` script combines these files so sqlc knows the complete database structure and can validate the SQL in each `queries.sql` file before generating Go code.
+`scripts/create_sqlc_full_schema.sh` script 會合併這些檔案，讓 sqlc 得知完整的資料庫結構，並在產生 Go 程式碼前驗證各 `queries.sql` 檔案中的 SQL。
 
-Although both contain DDL, the schema files and migrations serve different purposes:
+雖然 schema 檔與 migration 都包含 DDL，但兩者用途不同：
 
-| | `schema.sql` | Migration files |
+| | `schema.sql` | Migration 檔案 |
 | --- | --- | --- |
-| **Purpose** | A snapshot of the complete current database structure | An ordered history of changes to the database structure |
-| **Used by** | sqlc, after `scripts/create_sqlc_full_schema.sh` combines the domain files | golang-migrate, which runs the files in version order |
-| **Effect** | Helps sqlc understand and validate queries; it does not change the PostgreSQL database | Actually creates, changes, or removes objects in the PostgreSQL database |
-| **Organization** | One file for each domain | Numbered pairs of `up.sql` and `down.sql` files |
+| **用途** | 完整且最新的資料庫結構快照 | 資料庫結構依序變更的歷史紀錄 |
+| **使用者** | sqlc（在 `scripts/create_sqlc_full_schema.sh` 合併各 domain 檔案後使用） | golang-migrate（依版本順序執行檔案） |
+| **效果** | 協助 sqlc 理解並驗證查詢，不會變更 PostgreSQL 資料庫 | 實際在 PostgreSQL 資料庫中建立、變更或移除物件 |
+| **組織方式** | 每個 domain 一個檔案 | 有編號的 `up.sql` 與 `down.sql` 成對檔案 |
 
-When you add or change a table, update its domain's `schema.sql` and add a new migration for the same change. Updating only `schema.sql` would let sqlc see a structure that the real database does not have, while adding only a migration would leave sqlc with an outdated description.
+新增或變更資料表時，請更新該 domain 的 `schema.sql`，並為同一項變更新增 migration。只更新 `schema.sql` 會讓 sqlc 看見實際資料庫並不存在的結構；只新增 migration 則會讓 sqlc 使用過時的描述。
 
-After all `up` migrations run, the actual database structure must match the combined `schema.sql` files.
+所有 `up` migration 執行完畢後，實際資料庫結構必須與合併後的 `schema.sql` 檔案一致。
 
-### Schema Contract
+### 綱要規格契約
 
 #### `members`
 
-| Column | PostgreSQL Type | Requirements |
+| 欄位 | PostgreSQL 型別 | 要求 |
 | --- | --- | --- |
-| `id` | `UUID` | Primary key; defaults to `gen_random_uuid()` |
-| `name` | `TEXT` | Required |
-| `email` | `TEXT` | Required and unique |
-| `joined_at` | `TIMESTAMPTZ` | Required; defaults to `now()` |
+| `id` | `UUID` | Primary key；預設值為 `gen_random_uuid()` |
+| `name` | `TEXT` | 必填 |
+| `email` | `TEXT` | 必填且不可重複 |
+| `joined_at` | `TIMESTAMPTZ` | 必填；預設值為 `now()` |
 
 #### `courses`
 
-| Column | PostgreSQL Type | Requirements |
+| 欄位 | PostgreSQL 型別 | 要求 |
 | --- | --- | --- |
-| `id` | `UUID` | Primary key; defaults to `gen_random_uuid()` |
-| `title` | `TEXT` | Required |
-| `capacity` | `INTEGER` | Required and greater than zero |
-| `created_at` | `TIMESTAMPTZ` | Required; defaults to `now()` |
+| `id` | `UUID` | Primary key；預設值為 `gen_random_uuid()` |
+| `title` | `TEXT` | 必填 |
+| `capacity` | `INTEGER` | 必填且必須大於零 |
+| `created_at` | `TIMESTAMPTZ` | 必填；預設值為 `now()` |
 
 #### `enrollments`
 
-| Column | PostgreSQL Type | Requirements |
+| 欄位 | PostgreSQL 型別 | 要求 |
 | --- | --- | --- |
-| `member_id` | `UUID` | References `members(id)` with `ON DELETE CASCADE` |
-| `course_id` | `UUID` | References `courses(id)` with `ON DELETE CASCADE` |
-| `status` | `TEXT` | Required; defaults to `enrolled` |
-| `enrolled_at` | `TIMESTAMPTZ` | Required; defaults to `now()` |
+| `member_id` | `UUID` | 參照 `members(id)`，並設為 `ON DELETE CASCADE` |
+| `course_id` | `UUID` | 參照 `courses(id)`，並設為 `ON DELETE CASCADE` |
+| `status` | `TEXT` | 必填；預設值為 `enrolled` |
+| `enrolled_at` | `TIMESTAMPTZ` | 必填；預設值為 `now()` |
 
-The pair `(member_id, course_id)` must be the primary key of `enrollments`. This prevents a member from enrolling in the same course more than once.
+`(member_id, course_id)` 這組欄位必須作為 `enrollments` 的 primary key，以防止同一名成員重複選修同一門課程。
 
-The `status` column must accept only the following values:
+`status` 欄位只能接受下列值：
 
 - `enrolled`
 - `completed`
 - `cancelled`
 
-All columns in the three tables must be `NOT NULL`.
+三個資料表中的所有欄位皆須設定為 `NOT NULL`。
 
-### Deliverables
+### Goals
 
-1. Create an ERD that shows the entities, primary keys, foreign keys, relationships, and cardinalities.
-2. Write the table DDL in the `schema.sql` file for each of the `member`, `course`, and `enrollment` domains. These files are used by `scripts/create_sqlc_full_schema.sh`.
-3. Write paired `up` and `down` migration files for the complete schema. Use fixed-width sequence numbers such as `000001`, `000002`, and `000003` so golang-migrate and sqlc process the files in the same order.
-4. Ensure that the combined `schema.sql` files describe the same final schema produced by applying every `up` migration.
-5. Implement all required `PRIMARY KEY`, `FOREIGN KEY`, `NOT NULL`, `UNIQUE`, `CHECK`, and `DEFAULT` constraints without copying a completed `CREATE TABLE` statement from this specification.
+1. 建立 ERD，呈現 entity、primary key、foreign key、relationship 與 cardinality。
+2. 在 `member`、`course` 與 `enrollment` 各 domain 的 `schema.sql` 中撰寫資料表 DDL。這些檔案會由 `scripts/create_sqlc_full_schema.sh` 使用。
+3. 為完整綱要撰寫成對的 `up` 與 `down` migration 檔案。請使用 `000001`、`000002`、`000003` 等固定寬度的序號，讓 golang-migrate 與 sqlc 以相同順序處理檔案。
+4. 確保合併後的 `schema.sql` 檔案描述的綱要，與套用所有 `up` migration 後產生的最終綱要一致。
+5. 實作所有必要的 `PRIMARY KEY`、`FOREIGN KEY`、`NOT NULL`、`UNIQUE`、`CHECK` 與 `DEFAULT` 約束，但不得直接從本規格複製完成的 `CREATE TABLE` statement。
 
-### Verification
+## 第二部分：SQL 查詢與 Queries Layer
 
-Demonstrate that:
-
-1. Applying all `up` migrations to an empty database creates the expected tables and constraints.
-2. Invalid data is rejected, including duplicate member emails, non-positive course capacity, unsupported enrollment status, enrollment with missing references, and duplicate enrollment.
-3. Applying all `down` migrations removes the schema without manual cleanup.
-4. Applying the `up` migrations again after rollback succeeds.
-5. The combined `schema.sql` files and the migrated database expose the same tables, columns, types, and constraints.
-
-## Part II: SQL Query and Queries Layer
-
-Build type-safe query layers for the `member`, `course`, and `enrollment` domains. Each domain must contain:
+為 `member`、`course` 與 `enrollment` domain 建立型別安全的查詢層。每個 domain 必須包含：
 
 - `schema.sql`
 - `queries.sql`
 
-Do not create or edit `sqlc.yaml` manually. Generate it with the existing script:
+請勿手動建立或編輯 `sqlc.yaml`，而應使用現有 script 產生：
 
 ```bash
 ./scripts/create_sqlc_full_schema.sh
 sqlc generate
 ```
 
-Write all annotated queries in each domain's `queries.sql`. The query names, parameters, and generated return types below are fixed contracts for the provided services and handlers.
+請在各 domain 的 `queries.sql` 中撰寫所有含 annotation 的查詢。以下查詢名稱、參數及產生的回傳型別，是提供給 service 與 handler 使用的固定契約。
 
-For every query with more than one parameter, use [`sqlc.arg(...)`](https://docs.sqlc.dev/en/latest/howto/named_parameters.html) instead of positional parameters such as `$1`, `$2`, and `$3`. Named parameters control the field names in sqlc-generated Go parameter structs. For example, `sqlc.arg(member_id)` generates a `MemberID` field instead of an inferred or positional name.
+凡是包含多個參數的查詢，請使用 [`sqlc.arg(...)`](https://docs.sqlc.dev/en/latest/howto/named_parameters.html)，不要使用 `$1`、`$2`、`$3` 等位置參數。具名參數會控制 sqlc 產生的 Go 參數 struct 欄位名稱。例如，`sqlc.arg(member_id)` 會產生 `MemberID` 欄位，而非推測或依位置命名的欄位。
 
-The generated parameter types shown below document the required output from sqlc; do not copy them into a Go file.
+下方列出的產生參數型別是 sqlc 所需輸出的說明，請勿將它們複製到 Go 檔案中。
 
-All domains follow these CRUD rules:
+所有 domain 均遵循下列 CRUD 規則：
 
-- Query annotations, names, and cardinalities must match the contracts below.
-- Create, update, and delete queries must use `:one` and `RETURNING` to return the affected row.
-- Every `SELECT` and `RETURNING` clause must list its columns explicitly. Do not use `*`.
-- Every update and delete must contain a complete `WHERE` clause that identifies exactly one resource.
-- List queries do not use pagination and must include the deterministic `ORDER BY` specified below.
+- 查詢 annotation、名稱與 cardinality 必須符合下方契約。
+- Create、update 與 delete 查詢必須使用 `:one` 和 `RETURNING` 回傳受影響的資料列。
+- 每個 `SELECT` 與 `RETURNING` clause 都必須明確列出欄位，不得使用 `*`。
+- 每個 update 與 delete 都必須包含完整的 `WHERE` clause，精確指定單一資源。
+- List 查詢不使用 pagination，且必須包含下方指定的 deterministic `ORDER BY`。
 
-### Member Queries Contract
+### Member 查詢契約
 
-Implement these annotated queries in `internal/member/queries.sql`:
+請在 `internal/member/queries.sql` 實作下列含 annotation 的查詢：
 
-| Query | Inputs | Required behavior |
+| 查詢 | 輸入 | 必要行為 |
 | --- | --- | --- |
-| `CreateMember :one` | `name`, `email` | Insert a member and return `id`, `name`, `email`, and `joined_at`. |
-| `GetMember :one` | `id` | Return the member identified by `id`; a missing member returns `pgx.ErrNoRows`. |
-| `ListMembers :many` | None | Return every member ordered by `joined_at ASC, id ASC`. |
-| `UpdateMember :one` | `name`, `email`, `id` | Fully replace `name` and `email` for the member identified by `id`, then return that row. |
-| `DeleteMember :one` | `id` | Delete only the member identified by `id` and return the deleted row. |
-| `ListMemberCourses :many` | `member_id` | Return the member's complete enrollment history as described immediately below. |
-| `ListClassmates :many` | `member_id` | Return unique active classmates as described immediately below. |
+| `CreateMember :one` | `name`、`email` | 新增 member，並回傳 `id`、`name`、`email` 與 `joined_at`。 |
+| `GetMember :one` | `id` | 回傳 `id` 指定的 member；若不存在則回傳 `pgx.ErrNoRows`。 |
+| `ListMembers :many` | 無 | 回傳所有 member，並依 `joined_at ASC, id ASC` 排序。 |
+| `UpdateMember :one` | `name`、`email`、`id` | 完整取代 `id` 指定之 member 的 `name` 與 `email`，再回傳該資料列。 |
+| `DeleteMember :one` | `id` | 僅刪除 `id` 指定的 member，並回傳被刪除的資料列。 |
+| `ListMemberCourses :many` | `member_id` | 依下方說明回傳該 member 的完整選課紀錄。 |
+| `ListClassmates :many` | `member_id` | 依下方說明回傳不重複的目前同學名單。 |
 
-Running `sqlc generate` must produce parameter types with these fields:
+執行 `sqlc generate` 後，必須產生具有下列欄位的參數型別：
 
 ```go
 type CreateMemberParams struct {
@@ -377,26 +367,26 @@ type UpdateMemberParams struct {
 }
 ```
 
-#### JOIN: List a Member's Courses
+#### JOIN：列出 Member 的課程
 
-Implement `ListMemberCourses` using `members`, `enrollments`, and `courses`.
+使用 `members`、`enrollments` 與 `courses` 實作 `ListMemberCourses`。
 
-The query must:
+此查詢必須：
 
-- Accept one member ID.
-- Include the member's complete enrollment history, regardless of status.
-- Return exactly these columns and aliases:
+- 接受一個 member ID。
+- 包含該 member 的完整選課紀錄，不受 status 限制。
+- 僅回傳下列欄位與 alias：
 
-| Alias | PostgreSQL Type |
+| Alias | PostgreSQL 型別 |
 | --- | --- |
 | `course_id` | `UUID` |
 | `course_title` | `TEXT` |
 | `status` | `TEXT` |
 | `enrolled_at` | `TIMESTAMPTZ` |
 
-- Sort by `course_title ASC, course_id ASC`.
+- 依 `course_title ASC, course_id ASC` 排序。
 
-The generated result type must be:
+產生的結果型別必須為：
 
 ```go
 type ListMemberCoursesRow struct {
@@ -407,28 +397,28 @@ type ListMemberCoursesRow struct {
 }
 ```
 
-#### JOIN: List Classmates
+#### JOIN：列出同學
 
-Implement `ListClassmates` with a self-join on `enrollments` and a join to `members`.
+使用 `enrollments` 的 self-join 以及與 `members` 的 join 實作 `ListClassmates`。
 
-The query must:
+此查詢必須：
 
-- Accept one member ID.
-- Find other members who share at least one course with the requested member.
-- Require both the requested member's enrollment and the classmate's enrollment to have the status `enrolled`.
-- Exclude the requested member from the result.
-- Use `DISTINCT` so a classmate who shares multiple courses appears only once.
-- Return exactly these columns and aliases:
+- 接受一個 member ID。
+- 找出與指定 member 至少共同選修一門課程的其他 member。
+- 指定 member 與同學的 enrollment status 都必須是 `enrolled`。
+- 從結果中排除指定的 member。
+- 使用 `DISTINCT`，讓共同選修多門課程的同學只出現一次。
+- 僅回傳下列欄位與 alias：
 
-| Alias | PostgreSQL Type |
+| Alias | PostgreSQL 型別 |
 | --- | --- |
 | `member_id` | `UUID` |
 | `member_name` | `TEXT` |
 | `member_email` | `TEXT` |
 
-- Sort by `member_name ASC, member_id ASC`.
+- 依 `member_name ASC, member_id ASC` 排序。
 
-The generated result type must be:
+產生的結果型別必須為：
 
 ```go
 type ListClassmatesRow struct {
@@ -438,20 +428,20 @@ type ListClassmatesRow struct {
 }
 ```
 
-### Course Queries Contract
+### Course 查詢契約
 
-Implement these annotated queries in `internal/course/queries.sql`:
+請在 `internal/course/queries.sql` 實作下列含 annotation 的查詢：
 
-| Query | Inputs | Required behavior |
+| 查詢 | 輸入 | 必要行為 |
 | --- | --- | --- |
-| `CreateCourse :one` | `title`, `capacity` | Insert a course and return `id`, `title`, `capacity`, and `created_at`. |
-| `GetCourse :one` | `id` | Return the course identified by `id`; a missing course returns `pgx.ErrNoRows`. |
-| `ListCourses :many` | None | Return every course ordered by `created_at ASC, id ASC`. |
-| `UpdateCourse :one` | `title`, `capacity`, `id` | Fully replace `title` and `capacity` for the course identified by `id`, then return that row. |
-| `DeleteCourse :one` | `id` | Delete only the course identified by `id` and return the deleted row. |
-| `ListCourseRoster :many` | `course_id` | Return active enrollments for the course as described immediately below. |
+| `CreateCourse :one` | `title`、`capacity` | 新增 course，並回傳 `id`、`title`、`capacity` 與 `created_at`。 |
+| `GetCourse :one` | `id` | 回傳 `id` 指定的 course；若不存在則回傳 `pgx.ErrNoRows`。 |
+| `ListCourses :many` | 無 | 回傳所有 course，並依 `created_at ASC, id ASC` 排序。 |
+| `UpdateCourse :one` | `title`、`capacity`、`id` | 完整取代 `id` 指定之 course 的 `title` 與 `capacity`，再回傳該資料列。 |
+| `DeleteCourse :one` | `id` | 僅刪除 `id` 指定的 course，並回傳被刪除的資料列。 |
+| `ListCourseRoster :many` | `course_id` | 依下方說明回傳該課程目前有效的 enrollment。 |
 
-Running `sqlc generate` must produce parameter types with these fields:
+執行 `sqlc generate` 後，必須產生具有下列欄位的參數型別：
 
 ```go
 type CreateCourseParams struct {
@@ -466,18 +456,18 @@ type UpdateCourseParams struct {
 }
 ```
 
-#### JOIN: List a Course Roster
+#### JOIN：列出課程名單
 
-Implement `ListCourseRoster` using `courses`, `enrollments`, and `members`.
+使用 `courses`、`enrollments` 與 `members` 實作 `ListCourseRoster`。
 
-The query must:
+此查詢必須：
 
-- Accept one course ID.
-- Include only enrollments whose status is `enrolled`.
-- Exclude `completed` and `cancelled` enrollments.
-- Return exactly these columns and aliases:
+- 接受一個 course ID。
+- 僅包含 status 為 `enrolled` 的 enrollment。
+- 排除 `completed` 與 `cancelled` enrollment。
+- 僅回傳下列欄位與 alias：
 
-| Alias | PostgreSQL Type |
+| Alias | PostgreSQL 型別 |
 | --- | --- |
 | `member_id` | `UUID` |
 | `member_name` | `TEXT` |
@@ -485,9 +475,9 @@ The query must:
 | `status` | `TEXT` |
 | `enrolled_at` | `TIMESTAMPTZ` |
 
-- Sort by `member_name ASC, member_id ASC`.
+- 依 `member_name ASC, member_id ASC` 排序。
 
-The generated result type must be:
+產生的結果型別必須為：
 
 ```go
 type ListCourseRosterRow struct {
@@ -499,20 +489,20 @@ type ListCourseRosterRow struct {
 }
 ```
 
-### Enrollment Queries Contract
+### Enrollment 查詢契約
 
-Implement these annotated queries in `internal/enrollment/queries.sql`:
+請在 `internal/enrollment/queries.sql` 實作下列含 annotation 的查詢：
 
-| Query | Inputs | Required behavior |
+| 查詢 | 輸入 | 必要行為 |
 | --- | --- | --- |
-| `CreateEnrollment :one` | `member_id`, `course_id` | Insert an enrollment using the default `enrolled` status and return the created row. |
-| `GetEnrollment :one` | `member_id`, `course_id` | Return the enrollment identified by the composite member/course key; a missing enrollment returns `pgx.ErrNoRows`. |
-| `ListEnrollments :many` | None | Return every enrollment ordered by `enrolled_at ASC, member_id ASC, course_id ASC`. |
-| `UpdateEnrollmentStatus :one` | `status`, `member_id`, `course_id` | Update only `status` for the enrollment identified by the composite key, then return that row. |
-| `DeleteEnrollment :one` | `member_id`, `course_id` | Delete only the enrollment identified by the composite key and return the deleted row. |
-| `GetEnrollmentDetail :one` | `member_id`, `course_id` | Return the joined enrollment detail described immediately below. |
+| `CreateEnrollment :one` | `member_id`、`course_id` | 使用預設的 `enrolled` status 新增 enrollment，並回傳建立的資料列。 |
+| `GetEnrollment :one` | `member_id`、`course_id` | 回傳由 member/course composite key 指定的 enrollment；若不存在則回傳 `pgx.ErrNoRows`。 |
+| `ListEnrollments :many` | 無 | 回傳所有 enrollment，並依 `enrolled_at ASC, member_id ASC, course_id ASC` 排序。 |
+| `UpdateEnrollmentStatus :one` | `status`、`member_id`、`course_id` | 僅更新由 composite key 指定之 enrollment 的 `status`，再回傳該資料列。 |
+| `DeleteEnrollment :one` | `member_id`、`course_id` | 僅刪除由 composite key 指定的 enrollment，並回傳被刪除的資料列。 |
+| `GetEnrollmentDetail :one` | `member_id`、`course_id` | 依下方說明回傳 join 後的 enrollment 詳細資料。 |
 
-Running `sqlc generate` must produce parameter types with these fields:
+執行 `sqlc generate` 後，必須產生具有下列欄位的參數型別：
 
 ```go
 type CreateEnrollmentParams struct {
@@ -542,18 +532,18 @@ type GetEnrollmentDetailParams struct {
 }
 ```
 
-#### JOIN: Get Enrollment Details
+#### JOIN：取得 Enrollment 詳細資料
 
-Implement `GetEnrollmentDetail` using all three tables.
+使用全部三個資料表實作 `GetEnrollmentDetail`。
 
-The query must:
+此查詢必須：
 
-- Accept `member_id` and `course_id` through `sqlc.arg(...)`.
-- Use the `:one` annotation.
-- Return `pgx.ErrNoRows` through the generated method when the enrollment does not exist.
-- Return exactly these columns and aliases:
+- 透過 `sqlc.arg(...)` 接受 `member_id` 與 `course_id`。
+- 使用 `:one` annotation。
+- 當 enrollment 不存在時，透過產生的方法回傳 `pgx.ErrNoRows`。
+- 僅回傳下列欄位與 alias：
 
-| Alias | PostgreSQL Type |
+| Alias | PostgreSQL 型別 |
 | --- | --- |
 | `member_id` | `UUID` |
 | `member_name` | `TEXT` |
@@ -564,7 +554,7 @@ The query must:
 | `status` | `TEXT` |
 | `enrolled_at` | `TIMESTAMPTZ` |
 
-The generated result type must be:
+產生的結果型別必須為：
 
 ```go
 type GetEnrollmentDetailRow struct {
@@ -579,87 +569,85 @@ type GetEnrollmentDetailRow struct {
 }
 ```
 
-### Deliverables
+### Goals
 
-1. Complete the three domain `schema.sql` files and all paired migrations.
-2. Add the annotated `queries.sql` file to each domain.
-3. Run `./scripts/create_sqlc_full_schema.sh` to create the complete schema and `sqlc.yaml`.
-4. Run `sqlc generate`.
-5. Submit the Go files produced by `sqlc generate`. Do not create or manually edit generated Go code.
-6. Write tests or a small Go program that calls the generated query methods.
+1. 完成三個 domain 的 `schema.sql` 檔案及所有成對的 migration。
+2. 為每個 domain 新增含 annotation 的 `queries.sql` 檔案。
+3. 執行 `./scripts/create_sqlc_full_schema.sh`，建立完整綱要與 `sqlc.yaml`。
+4. 執行 `sqlc generate`。
+5. 提交由 `sqlc generate` 產生的 Go 檔案。請勿自行建立或手動編輯產生的 Go 程式碼。
+6. 撰寫測試或小型 Go 程式，呼叫產生的查詢方法。
 
-### Verification
+### 驗證
 
-Demonstrate that:
+1. `sqlc generate` 能順利完成且沒有錯誤。
+2. `go test ./...` 能編譯並測試產生的查詢方法。
+3. CRUD 操作會回傳預期的資料列，且僅影響指定目標。
+4. 沒有 enrollment 的 member 從 `ListMemberCourses` 取得的結果不包含任何資料列。
+5. 沒有有效 enrollment 的 course 從 `ListCourseRoster` 取得的結果不包含任何資料列。
+6. `completed` 與 `cancelled` enrollment 不會出現在 `ListCourseRoster` 中。
+7. 在多門課程中都是同學的 member，只會在 `ListClassmates` 中出現一次。
+8. enrollment 不存在時，`GetEnrollmentDetail` 會回傳 `pgx.ErrNoRows`。
+9. 重複或無效的 enrollment 會被第一部分實作的約束拒絕。
 
-1. `sqlc generate` completes without errors.
-2. `go test ./...` compiles and tests the generated query methods.
-3. CRUD operations return the expected rows and affect only their intended targets.
-4. A member without enrollments receives no rows from `ListMemberCourses`.
-5. A course without active enrollments receives no rows from `ListCourseRoster`.
-6. Completed and cancelled enrollments do not appear in `ListCourseRoster`.
-7. A classmate who shares multiple courses appears only once in `ListClassmates`.
-8. `GetEnrollmentDetail` returns `pgx.ErrNoRows` for a missing enrollment.
-9. Duplicate or invalid enrollments are rejected by the constraints implemented in Part I.
+## 評測
 
-## Evaluation
+本實作採通過／不通過制。
 
-This lab uses pass/fail evaluation. 
+### 執行評測前
 
-### Before Running the Evaluation
-
-1. Start PostgreSQL with the connection used throughout this lab:
+1. 使用本實作全程採用的連線設定啟動 PostgreSQL：
 
    ```text
    postgresql://postgres:password@localhost:5432/postgres?sslmode=disable
    ```
 
-2. Generate the sqlc configuration and Go code:
+2. 產生 sqlc 設定與 Go 程式碼：
 
    ```bash
    ./scripts/create_sqlc_full_schema.sh
    sqlc generate
    ```
 
-3. Run the evaluation. The tests automatically apply all pending up migrations before checking the schema and query behavior:
+3. 執行評測。測試會在檢查綱要與查詢行為前，自動套用所有尚未執行的 up migration：
 
    ```bash
    go test ./internal/...
    ```
 
-### Passing Criteria
+### 通過標準
 
-A submission passes when all of the following are true:
+提交內容符合下列所有條件即為通過：
 
-- The sqlc-generated packages compile against the required query names, parameters, and result fields.
-- The automatic migrations complete, and the database preflight finds the `members`, `courses`, and `enrollments` tables.
-- All 10 member tests, 10 course tests, and 14 enrollment tests pass.
-- The provided `queries_test.go` files and generated files have not been manually modified.
+- sqlc 產生的 package 能以規定的查詢名稱、參數及結果欄位成功編譯。
+- 自動 migration 順利完成，且資料庫 preflight 能找到 `members`、`courses` 與 `enrollments` 資料表。
+- 10 項 member 測試、10 項 course 測試及 14 項 enrollment 測試全數通過。
+- 提供的 `queries_test.go` 及產生的檔案未經手動修改。
 
-### Member Evaluation (10 Tests)
+### Member 評測（10 項測試）
 
-| Area | Evaluated behavior |
+| 項目 | 評測行為 |
 | --- | --- |
-| CRUD (5) | Create, get, list, update, and delete return the expected member data and affect only the requested row. |
-| Errors and constraints (2) | A missing member returns `pgx.ErrNoRows`, and a duplicate email is rejected by a unique constraint. |
-| Member courses (2) | Complete enrollment history includes every status, follows the required ordering, and returns an empty list when appropriate. |
-| Classmates (1) | Results filter by active enrollment, exclude the requested member, remove duplicates, and follow the required ordering. |
+| CRUD（5） | Create、get、list、update 及 delete 會回傳預期的 member 資料，且僅影響指定的資料列。 |
+| 錯誤與約束（2） | member 不存在時回傳 `pgx.ErrNoRows`，且重複 email 會被 unique constraint 拒絕。 |
+| Member 課程（2） | 完整選課紀錄包含每一種 status、遵循規定的排序，並能在適當情況下回傳空 list。 |
+| 同學（1） | 結果會依有效 enrollment 篩選、排除指定 member、移除重複項目，並遵循規定的排序。 |
 
-### Course Evaluation (10 Tests)
+### Course 評測（10 項測試）
 
-| Area | Evaluated behavior |
+| 項目 | 評測行為 |
 | --- | --- |
-| CRUD (5) | Create, get, list, update, and delete return the expected course data and affect only the requested row. |
-| Errors and constraints (3) | A missing course returns `pgx.ErrNoRows`; zero and negative capacities are rejected by a check constraint. |
-| Course roster (2) | The roster contains only active enrollments, excludes completed and cancelled enrollments, follows the required ordering, and can be empty. |
+| CRUD（5） | Create、get、list、update 及 delete 會回傳預期的 course 資料，且僅影響指定的資料列。 |
+| 錯誤與約束（3） | course 不存在時回傳 `pgx.ErrNoRows`；零與負數的 capacity 會被 check constraint 拒絕。 |
+| 課程名單（2） | 名單僅包含有效 enrollment，排除 completed 與 cancelled enrollment，遵循規定的排序，且可為空。 |
 
-### Enrollment Evaluation (14 Tests)
+### Enrollment 評測（14 項測試）
 
-| Area | Evaluated behavior |
+| 項目 | 評測行為 |
 | --- | --- |
-| CRUD (5) | Create, get, list, update status, and delete use the member/course composite identifier and return the expected data. |
-| Errors and constraints (5) | Duplicate pairs, missing member/course references, and invalid statuses are rejected; a missing enrollment returns `pgx.ErrNoRows`. |
-| Enrollment detail (2) | The detail query returns the required joined member, course, and enrollment fields, or `pgx.ErrNoRows` when missing. |
-| Cascades (2) | Deleting either the related member or course automatically removes the enrollment. |
+| CRUD（5） | Create、get、list、update status 及 delete 使用 member/course composite identifier，並回傳預期資料。 |
+| 錯誤與約束（5） | 重複組合、不存在的 member/course reference 及無效 status 會被拒絕；enrollment 不存在時回傳 `pgx.ErrNoRows`。 |
+| Enrollment 詳細資料（2） | Detail 查詢會回傳規定的 member、course 與 enrollment join 欄位；若不存在則回傳 `pgx.ErrNoRows`。 |
+| Cascade（2） | 刪除相關的 member 或 course 時，會自動移除 enrollment。 |
 
-If the generated packages do not compile, first check the query annotations, names, parameters, selected columns, and aliases against the contracts above. A startup failure means PostgreSQL is unavailable, a migration file is missing or invalid, or the migrations did not create all three tables. A failed assertion or unexpected SQLSTATE means the query behavior or database constraint does not match the specification.
+如果產生的 package 無法編譯，請先依契約檢查查詢 annotation、名稱、參數、選取的欄位與 alias。啟動失敗表示 PostgreSQL 無法使用、migration 檔案遺失或無效，或 migration 未建立全部三個資料表。Assertion 失敗或出現非預期的 SQLSTATE，表示查詢行為或資料庫約束不符合規格。
